@@ -7,8 +7,8 @@ Dashboard ejecutivo estático (HTML + CSS + JavaScript puro) para publicar en **
 - `index.html` — estructura del dashboard.
 - `style.css` — diseño tipo centro de control ejecutivo, responsive.
 - `script.js` — carga de datos, KPIs, filtros, SLA y gráficos.
-- `data/historico.json` — operaciones (exportadas desde Excel/SharePoint). Incluye datos de ejemplo de 3 años.
-- `data/sla.json` — tabla de referencia de SLA 2026.
+- `historico.json` — operaciones (exportadas desde Excel/SharePoint). Incluye datos de ejemplo de 3 años.
+- `sla.json` — tabla de referencia de SLA 2026.
 
 ## Publicar en GitHub Pages
 
