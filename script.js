@@ -1,10 +1,5 @@
 'use strict';
 
-/* ============================================================
-   Centro de Control Logístico — lógica del dashboard
-   Estático, sin backend. Lee data/historico.json.
-   ============================================================ */
-
 let operations = [];
 const charts = {};
 
@@ -15,12 +10,18 @@ const fmtMoney = new Intl.NumberFormat('es-CL', { style: 'currency', currency: '
 const MONTHS_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 const PALETTE = {
-  text: '#e8edf6', muted: '#8ba0bf', faint: '#5e7397', grid: '#243551',
-  accent: '#36d1b7', accent2: '#5b9bff', warn: '#ffb454', bad: '#ff6b7a',
+  text: '#e8edf6',
+  muted: '#8ba0bf',
+  faint: '#5e7397',
+  grid: '#243551',
+  accent: '#36d1b7',
+  accent2: '#5b9bff',
+  good: '#36d1b7',
+  warn: '#ffb454',
+  bad: '#ff6b7a',
   series: ['#36d1b7', '#5b9bff', '#ffb454', '#ff6b7a', '#b48cff', '#4fd1c5', '#f6a5c0', '#9fb3c8']
 };
 
-/* ---------- Chart.js defaults ---------- */
 function applyChartDefaults() {
   if (!window.Chart) return;
   Chart.defaults.color = PALETTE.muted;
@@ -29,49 +30,56 @@ function applyChartDefaults() {
   Chart.defaults.borderColor = PALETTE.grid;
 }
 
-/* ============================================================
-   Carga y normalización
-   ============================================================ */
 async function init() {
   applyChartDefaults();
+
   let raw;
+
   try {
-    const res = await fetch('data/historico.json', { cache: 'no-store' });
+    const res = await fetch('historico.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     raw = await res.json();
   } catch (err) {
     showBanner(
-      `No se pudo cargar <strong>data/historico.json</strong>. Verifica que el archivo exista, ` +
-      `sea JSON válido y que estés sirviendo el sitio por HTTP (GitHub Pages o un servidor local). ` +
-      `Detalle: ${err.message}`, 'error');
+      `No se pudo cargar <strong>historico.json</strong>. Verifica que el archivo exista y sea JSON válido. Detalle: ${err.message}`,
+      'error'
+    );
     return;
   }
 
   if (!Array.isArray(raw)) {
-    showBanner('El archivo <strong>historico.json</strong> debe contener una lista (array) de operaciones.', 'error');
+    showBanner('El archivo <strong>historico.json</strong> debe contener una lista de operaciones.', 'error');
     return;
   }
+
   if (raw.length === 0) {
-    showBanner('El archivo <strong>historico.json</strong> está vacío. Carga datos para ver indicadores.');
+    showBanner('El archivo <strong>historico.json</strong> está vacío.');
     return;
   }
 
   operations = raw.map(normalizeOperation);
+
   setDataRange(operations);
   populateFilters(operations);
+
   document.querySelectorAll('select').forEach(s => s.addEventListener('change', updateDashboard));
-  document.getElementById('resetFilters').addEventListener('click', resetFilters);
+
+  const resetBtn = document.getElementById('resetFilters');
+  if (resetBtn) resetBtn.addEventListener('click', resetFilters);
+
   updateDashboard();
 }
 
 function normalizeOperation(row) {
   row = row || {};
+
   const fechaIngreso = parseDate(row.fechaIngreso);
   const fechaAceptacion = parseDate(row.fechaAceptacion);
   const diasTransito = daysBetween(fechaIngreso, fechaAceptacion);
   const slaDias = toNum(row.slaDias);
   const hasSla = slaDias > 0 && diasTransito !== null;
   const atraso = hasSla ? Math.max(0, diasTransito - slaDias) : 0;
+
   return {
     despacho: str(row.despacho),
     proveedor: str(row.proveedor) || 'Sin proveedor',
@@ -79,7 +87,8 @@ function normalizeOperation(row) {
     viaTransporte: str(row.viaTransporte) || 'Sin vía',
     puertoEmbarque: str(row.puertoEmbarque),
     puertoDestino: str(row.puertoDestino),
-    fechaIngreso, fechaAceptacion,
+    fechaIngreso,
+    fechaAceptacion,
     year: fechaIngreso ? fechaIngreso.getFullYear() : null,
     monthKey: fechaIngreso ? `${fechaIngreso.getFullYear()}-${pad(fechaIngreso.getMonth() + 1)}` : null,
     pesoKg: toNum(row.pesoKg),
@@ -94,26 +103,42 @@ function normalizeOperation(row) {
   };
 }
 
-/* ---------- Helpers de datos ---------- */
-function toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
-function str(v) { return v == null ? '' : String(v).trim(); }
-function pad(n) { return String(n).padStart(2, '0'); }
+function toNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function str(v) {
+  return v == null ? '' : String(v).trim();
+}
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
 function parseDate(v) {
   if (!v) return null;
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
 }
+
 function daysBetween(a, b) {
   if (!a || !b) return null;
   return Math.max(0, Math.round((b - a) / 86400000));
 }
-function unique(arr) { return [...new Set(arr.filter(v => v != null && v !== ''))]; }
-function sum(data, key) { return data.reduce((acc, r) => acc + toNum(r[key]), 0); }
-function average(values) { return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0; }
 
-/* ============================================================
-   Filtros
-   ============================================================ */
+function unique(arr) {
+  return [...new Set(arr.filter(v => v != null && v !== ''))];
+}
+
+function sum(data, key) {
+  return data.reduce((acc, r) => acc + toNum(r[key]), 0);
+}
+
+function average(values) {
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+}
+
 function populateFilters(data) {
   fillSelect('filterYear', unique(data.map(x => x.year)).sort((a, b) => b - a));
   fillSelect('filterProvider', unique(data.map(x => x.proveedor)).sort());
@@ -123,6 +148,8 @@ function populateFilters(data) {
 
 function fillSelect(id, values) {
   const select = document.getElementById(id);
+  if (!select) return;
+
   values.forEach(value => {
     const opt = document.createElement('option');
     opt.value = value;
@@ -132,44 +159,50 @@ function fillSelect(id, values) {
 }
 
 function resetFilters() {
-  ['filterYear', 'filterProvider', 'filterCountry', 'filterMode', 'filterSla']
-    .forEach(id => { document.getElementById(id).value = 'all'; });
+  ['filterYear', 'filterProvider', 'filterCountry', 'filterMode', 'filterSla'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = 'all';
+  });
+
   updateDashboard();
 }
 
 function getFilteredData() {
-  const year = document.getElementById('filterYear').value;
-  const provider = document.getElementById('filterProvider').value;
-  const country = document.getElementById('filterCountry').value;
-  const mode = document.getElementById('filterMode').value;
-  const sla = document.getElementById('filterSla').value;
+  const year = document.getElementById('filterYear')?.value || 'all';
+  const provider = document.getElementById('filterProvider')?.value || 'all';
+  const country = document.getElementById('filterCountry')?.value || 'all';
+  const mode = document.getElementById('filterMode')?.value || 'all';
+  const sla = document.getElementById('filterSla')?.value || 'all';
 
   return operations.filter(r =>
     (year === 'all' || String(r.year) === year) &&
     (provider === 'all' || r.proveedor === provider) &&
     (country === 'all' || r.paisOrigen === country) &&
     (mode === 'all' || r.viaTransporte === mode) &&
-    (sla === 'all' ||
+    (
+      sla === 'all' ||
       (sla === 'ok' && r.cumpleSla === true) ||
       (sla === 'late' && r.cumpleSla === false) ||
-      (sla === 'none' && r.cumpleSla === null))
+      (sla === 'none' && r.cumpleSla === null)
+    )
   );
 }
 
-/* ============================================================
-   Render principal
-   ============================================================ */
 function updateDashboard() {
   const data = getFilteredData();
+
   if (data.length === 0) {
-    showBanner('No hay operaciones que coincidan con los filtros seleccionados. Ajusta o limpia los filtros.');
+    showBanner('No hay operaciones que coincidan con los filtros seleccionados.');
   } else {
     hideBanner();
   }
+
   updateKpis(data);
+
   if (window.Chart) {
-    try { updateCharts(data); } catch (e) { console.error('Chart render failed:', e); }
+    updateCharts(data);
   }
+
   updateTable(data);
 }
 
@@ -179,6 +212,7 @@ function updateKpis(data) {
   const totalVolume = sum(data, 'volumenM3');
   const totalCost = sum(data, 'valorFlete');
   const totalBultos = sum(data, 'totalBultos');
+
   const transitVals = data.map(x => x.diasTransito).filter(d => d != null && d > 0);
   const avgTransit = average(transitVals);
 
@@ -197,9 +231,13 @@ function updateKpis(data) {
   setText('kpiCostM3', totalVolume ? fmtMoney.format(totalCost / totalVolume) : '—');
   setText('kpiTransit', transitVals.length ? `${fmtDec.format(avgTransit)} d` : '—');
   setText('kpiSla', slaRows.length ? `${fmtDec.format(slaOk * 100)}%` : '—');
-  setText('kpiSlaFoot', slaRows.length
-    ? `${fmtDec.format(slaLate * 100)}% fuera · ${fmtDec.format(avgDelay)} d atraso prom.`
-    : 'sin SLA definido');
+
+  setText(
+    'kpiSlaFoot',
+    slaRows.length
+      ? `${fmtDec.format(slaLate * 100)}% fuera · ${fmtDec.format(avgDelay)} d atraso prom.`
+      : 'sin SLA definido'
+  );
 }
 
 function setText(id, value) {
@@ -207,19 +245,18 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
-/* ============================================================
-   Gráficos
-   ============================================================ */
 function updateCharts(data) {
   const months = sortedMonthKeys(data);
+  const monthLabels = months.map(prettyMonth);
+
   const opsByMonth = months.map(m => data.filter(x => x.monthKey === m).length);
   const costByMonth = months.map(m => sum(data.filter(x => x.monthKey === m), 'valorFlete'));
   const weightByMonth = months.map(m => sum(data.filter(x => x.monthKey === m), 'pesoKg'));
-  const monthLabels = months.map(prettyMonth);
 
   const providers = topN(groupSum(data, 'proveedor', 'valorFlete'), 8);
   const countries = topN(groupCount(data, 'paisOrigen'), 8);
   const modes = groupCount(data, 'viaTransporte');
+
   const sla = {
     Cumple: data.filter(x => x.cumpleSla === true).length,
     'Fuera SLA': data.filter(x => x.cumpleSla === false).length,
@@ -227,10 +264,9 @@ function updateCharts(data) {
   };
 
   bar('chartOperations', monthLabels, opsByMonth, 'Operaciones', PALETTE.accent2);
-  line('chartCost', monthLabels, costByMonth, 'Gasto (CLP)', PALETTE.accent, { money: true });
-  bar('chartWeight', monthLabels, weightByMonth, 'Peso (kg)', PALETTE.warn);
-  doughnut('chartSla', Object.keys(sla), Object.values(sla),
-    [PALETTE.good, PALETTE.bad, PALETTE.faint]);
+  line('chartCost', monthLabels, costByMonth, 'Gasto CLP', PALETTE.accent, { money: true });
+  bar('chartWeight', monthLabels, weightByMonth, 'Peso kg', PALETTE.warn);
+  doughnut('chartSla', Object.keys(sla), Object.values(sla), [PALETTE.good, PALETTE.bad, PALETTE.faint]);
   hbar('chartProviders', Object.keys(providers), Object.values(providers), 'Gasto', PALETTE.accent, { money: true });
   hbar('chartCountries', Object.keys(countries), Object.values(countries), 'Operaciones', PALETTE.accent2);
   doughnut('chartModes', Object.keys(modes), Object.values(modes), PALETTE.series);
@@ -239,88 +275,226 @@ function updateCharts(data) {
 function sortedMonthKeys(data) {
   return unique(data.map(x => x.monthKey)).sort();
 }
+
 function prettyMonth(key) {
+  if (!key) return 'Sin fecha';
   const [y, m] = key.split('-');
   return `${MONTHS_ES[Number(m) - 1]} ${y.slice(2)}`;
 }
+
 function groupCount(data, key) {
-  return data.reduce((acc, r) => { const k = r[key] || 'Sin dato'; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
-}
-function groupSum(data, key, valueKey) {
-  return data.reduce((acc, r) => { const k = r[key] || 'Sin dato'; acc[k] = (acc[k] || 0) + toNum(r[valueKey]); return acc; }, {});
-}
-function topN(obj, n) {
-  return Object.fromEntries(Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n));
+  return data.reduce((acc, r) => {
+    const k = r[key] || 'Sin dato';
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
 }
 
-/* ---------- Constructores de gráficos ---------- */
+function groupSum(data, key, valueKey) {
+  return data.reduce((acc, r) => {
+    const k = r[key] || 'Sin dato';
+    acc[k] = (acc[k] || 0) + toNum(r[valueKey]);
+    return acc;
+  }, {});
+}
+
+function topN(obj, n) {
+  return Object.fromEntries(
+    Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n)
+  );
+}
+
 function baseScales(money) {
   return {
-    x: { grid: { color: PALETTE.grid }, ticks: { color: PALETTE.muted } },
+    x: {
+      grid: { color: PALETTE.grid },
+      ticks: { color: PALETTE.muted }
+    },
     y: {
-      beginAtZero: true, grid: { color: PALETTE.grid },
-      ticks: { color: PALETTE.muted, callback: v => money ? compactMoney(v) : fmtInt.format(v) }
+      beginAtZero: true,
+      grid: { color: PALETTE.grid },
+      ticks: {
+        color: PALETTE.muted,
+        callback: v => money ? compactMoney(v) : fmtInt.format(v)
+      }
     }
   };
 }
+
 function compactMoney(v) {
   if (v >= 1e9) return `$${fmtDec.format(v / 1e9)}B`;
   if (v >= 1e6) return `$${fmtDec.format(v / 1e6)}M`;
   if (v >= 1e3) return `$${fmtInt.format(v / 1e3)}K`;
   return `$${fmtInt.format(v)}`;
 }
+
 function moneyTooltip(money) {
-  return { callbacks: { label: c => `${c.dataset.label}: ${money ? fmtMoney.format(c.parsed.y ?? c.parsed.x) : fmtInt.format(c.parsed.y ?? c.parsed.x)}` } };
+  return {
+    callbacks: {
+      label: c => {
+        const value = c.parsed.y ?? c.parsed.x ?? c.parsed;
+        return `${c.dataset.label}: ${money ? fmtMoney.format(value) : fmtInt.format(value)}`;
+      }
+    }
+  };
 }
 
-function destroy(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
-function ctx(id) { return document.getElementById(id); }
+function destroy(id) {
+  if (charts[id]) {
+    charts[id].destroy();
+    delete charts[id];
+  }
+}
+
+function ctx(id) {
+  return document.getElementById(id);
+}
 
 function bar(id, labels, values, label, color, opts = {}) {
+  const canvas = ctx(id);
+  if (!canvas) return;
+
   destroy(id);
-  charts[id] = new Chart(ctx(id), {
+
+  charts[id] = new Chart(canvas, {
     type: 'bar',
-    data: { labels, datasets: [{ label, data: values, backgroundColor: color, borderRadius: 6, maxBarThickness: 38 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: moneyTooltip(opts.money) }, scales: baseScales(opts.money) }
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data: values,
+        backgroundColor: color,
+        borderRadius: 6,
+        maxBarThickness: 38
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: moneyTooltip(opts.money)
+      },
+      scales: baseScales(opts.money)
+    }
   });
 }
+
 function hbar(id, labels, values, label, color, opts = {}) {
+  const canvas = ctx(id);
+  if (!canvas) return;
+
   destroy(id);
-  charts[id] = new Chart(ctx(id), {
+
+  charts[id] = new Chart(canvas, {
     type: 'bar',
-    data: { labels, datasets: [{ label, data: values, backgroundColor: color, borderRadius: 6 }] },
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data: values,
+        backgroundColor: color,
+        borderRadius: 6
+      }]
+    },
     options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: moneyTooltip(opts.money) },
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: moneyTooltip(opts.money)
+      },
       scales: {
-        x: { beginAtZero: true, grid: { color: PALETTE.grid }, ticks: { color: PALETTE.muted, callback: v => opts.money ? compactMoney(v) : fmtInt.format(v) } },
-        y: { grid: { display: false }, ticks: { color: PALETTE.muted } }
+        x: {
+          beginAtZero: true,
+          grid: { color: PALETTE.grid },
+          ticks: {
+            color: PALETTE.muted,
+            callback: v => opts.money ? compactMoney(v) : fmtInt.format(v)
+          }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: PALETTE.muted }
+        }
       }
     }
   });
 }
+
 function line(id, labels, values, label, color, opts = {}) {
+  const canvas = ctx(id);
+  if (!canvas) return;
+
   destroy(id);
-  charts[id] = new Chart(ctx(id), {
+
+  charts[id] = new Chart(canvas, {
     type: 'line',
-    data: { labels, datasets: [{ label, data: values, borderColor: color, backgroundColor: 'rgba(54,209,183,.14)', fill: true, tension: .32, pointRadius: 3, pointBackgroundColor: color }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: moneyTooltip(opts.money) }, scales: baseScales(opts.money) }
-  });
-}
-function doughnut(id, labels, values, colors) {
-  destroy(id);
-  charts[id] = new Chart(ctx(id), {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: PALETTE.grid, borderWidth: 2 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { color: PALETTE.muted, padding: 14, usePointStyle: true } } } }
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data: values,
+        borderColor: color,
+        backgroundColor: 'rgba(54,209,183,.14)',
+        fill: true,
+        tension: 0.32,
+        pointRadius: 3,
+        pointBackgroundColor: color
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: moneyTooltip(opts.money)
+      },
+      scales: baseScales(opts.money)
+    }
   });
 }
 
-/* ============================================================
-   Tabla
-   ============================================================ */
+function doughnut(id, labels, values, colors) {
+  const canvas = ctx(id);
+  if (!canvas) return;
+
+  destroy(id);
+
+  charts[id] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: PALETTE.grid,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: PALETTE.muted,
+            padding: 14,
+            usePointStyle: true
+          }
+        }
+      }
+    }
+  });
+}
+
 function updateTable(data) {
   const tbody = document.getElementById('operationsTable');
+  if (!tbody) return;
+
   tbody.innerHTML = '';
   setText('tableCount', `${fmtInt.format(data.length)} registros`);
 
@@ -334,12 +508,22 @@ function updateTable(data) {
     .slice(0, 30);
 
   const frag = document.createDocumentFragment();
+
   rows.forEach(r => {
     const tr = document.createElement('tr');
+
     let slaText, slaClass;
-    if (r.cumpleSla === null) { slaText = 'Sin SLA'; slaClass = 'status-none'; }
-    else if (r.cumpleSla) { slaText = 'Cumple'; slaClass = 'status-ok'; }
-    else { slaText = `+${r.atraso} d`; slaClass = 'status-late'; }
+
+    if (r.cumpleSla === null) {
+      slaText = 'Sin SLA';
+      slaClass = 'status-none';
+    } else if (r.cumpleSla) {
+      slaText = 'Cumple';
+      slaClass = 'status-ok';
+    } else {
+      slaText = `+${r.atraso} d`;
+      slaClass = 'status-late';
+    }
 
     tr.appendChild(td(r.despacho || '—'));
     tr.appendChild(td(r.fechaIngreso ? r.fechaIngreso.toISOString().slice(0, 10) : '—'));
@@ -350,8 +534,10 @@ function updateTable(data) {
     tr.appendChild(td(fmtMoney.format(r.valorFlete), 'num'));
     tr.appendChild(td(r.diasTransito != null ? r.diasTransito : '—', 'num'));
     tr.appendChild(td(slaText, `tag ${slaClass}`));
+
     frag.appendChild(tr);
   });
+
   tbody.appendChild(frag);
 }
 
@@ -362,25 +548,35 @@ function td(text, cls) {
   return cell;
 }
 
-/* ============================================================
-   UI auxiliar
-   ============================================================ */
 function setDataRange(data) {
   const dates = data.map(x => x.fechaIngreso).filter(Boolean).sort((a, b) => a - b);
   const el = document.getElementById('dataRange');
-  if (!dates.length) { el.textContent = `${data.length} ops`; return; }
-  const from = dates[0], to = dates[dates.length - 1];
+  if (!el) return;
+
+  if (!dates.length) {
+    el.textContent = `${data.length} ops`;
+    return;
+  }
+
+  const from = dates[0];
+  const to = dates[dates.length - 1];
+
   el.textContent = `${prettyMonth(`${from.getFullYear()}-${pad(from.getMonth() + 1)}`)} – ${prettyMonth(`${to.getFullYear()}-${pad(to.getMonth() + 1)}`)} · ${fmtInt.format(data.length)} ops`;
 }
 
 function showBanner(html, type) {
   const b = document.getElementById('banner');
+  if (!b) return;
+
   b.innerHTML = html;
   b.className = 'banner' + (type === 'error' ? ' error' : '');
   b.hidden = false;
 }
+
 function hideBanner() {
   const b = document.getElementById('banner');
+  if (!b) return;
+
   b.hidden = true;
 }
 
