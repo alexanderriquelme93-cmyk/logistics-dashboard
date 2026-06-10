@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Centro de Control Logístico · Chile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Centro de Control Logístico</h1>
+        <p class="brand-sub">Importaciones · Costos · Cubicación · Cumplimiento SLA</p>
+      </div>
+    </div>
+    <div class="topbar-meta">
+      <span class="pill" id="dataRange">—</span>
+      <span class="pill pill-ghost">GitHub Pages · SharePoint</span>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="filters" aria-label="Filtros">
+      <div class="filter">
+        <label for="filterYear">Año</label>
+        <select id="filterYear"><option value="all">Todos</option></select>
+      </div>
+      <div class="filter">
+        <label for="filterProvider">Proveedor</label>
+        <select id="filterProvider"><option value="all">Todos</option></select>
+      </div>
+      <div class="filter">
+        <label for="filterCountry">País origen</label>
+        <select id="filterCountry"><option value="all">Todos</option></select>
+      </div>
+      <div class="filter">
+        <label for="filterMode">Vía transporte</label>
+        <select id="filterMode"><option value="all">Todas</option></select>
+      </div>
+      <div class="filter">
+        <label for="filterSla">Cumplimiento SLA</label>
+        <select id="filterSla">
+          <option value="all">Todos</option>
+          <option value="ok">Cumple</option>
+          <option value="late">Fuera de SLA</option>
+          <option value="none">Sin SLA</option>
+        </select>
+      </div>
+      <button id="resetFilters" class="reset" type="button">Limpiar</button>
+    </section>
+
+    <div id="banner" class="banner" hidden></div>
+
+    <section class="kpi-grid" aria-label="Indicadores">
+      <article class="kpi"><span class="kpi-label">Operaciones</span><strong class="kpi-value" id="kpiOperations">0</strong><span class="kpi-foot" id="kpiBultos">0 bultos</span></article>
+      <article class="kpi"><span class="kpi-label">Peso total</span><strong class="kpi-value" id="kpiWeight">0</strong><span class="kpi-foot">kilogramos</span></article>
+      <article class="kpi"><span class="kpi-label">Volumen total</span><strong class="kpi-value" id="kpiVolume">0</strong><span class="kpi-foot">metros cúbicos</span></article>
+      <article class="kpi"><span class="kpi-label">Gasto logístico</span><strong class="kpi-value" id="kpiCost">0</strong><span class="kpi-foot">flete acumulado</span></article>
+      <article class="kpi"><span class="kpi-label">Costo por kg</span><strong class="kpi-value" id="kpiCostKg">0</strong><span class="kpi-foot">promedio</span></article>
+      <article class="kpi"><span class="kpi-label">Costo por m³</span><strong class="kpi-value" id="kpiCostM3">0</strong><span class="kpi-foot">promedio</span></article>
+      <article class="kpi"><span class="kpi-label">Tránsito promedio</span><strong class="kpi-value" id="kpiTransit">0</strong><span class="kpi-foot">días puerta a puerta</span></article>
+      <article class="kpi kpi-accent"><span class="kpi-label">SLA cumplido</span><strong class="kpi-value" id="kpiSla">0%</strong><span class="kpi-foot" id="kpiSlaFoot">0% fuera · 0 d atraso prom.</span></article>
+    </section>
+
+    <section class="chart-grid">
+      <article class="panel panel-wide"><h2>Operaciones por mes</h2><div class="canvas-box"><canvas id="chartOperations"></canvas></div></article>
+      <article class="panel panel-wide"><h2>Gasto logístico por mes</h2><div class="canvas-box"><canvas id="chartCost"></canvas></div></article>
+      <article class="panel panel-wide"><h2>Peso transportado por mes (kg)</h2><div class="canvas-box"><canvas id="chartWeight"></canvas></div></article>
+      <article class="panel"><h2>Cumplimiento SLA</h2><div class="canvas-box"><canvas id="chartSla"></canvas></div></article>
+      <article class="panel"><h2>Top proveedores · gasto</h2><div class="canvas-box"><canvas id="chartProviders"></canvas></div></article>
+      <article class="panel"><h2>Top países de origen</h2><div class="canvas-box"><canvas id="chartCountries"></canvas></div></article>
+      <article class="panel"><h2>Vías de transporte</h2><div class="canvas-box"><canvas id="chartModes"></canvas></div></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Últimas operaciones</h2>
+        <span class="panel-note" id="tableCount">0 registros</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Despacho</th><th>Ingreso</th><th>Proveedor</th><th>Origen</th><th>Vía</th>
+              <th class="num">Kg</th><th class="num">Flete</th><th class="num">Días</th><th>SLA</th>
+            </tr>
+          </thead>
+          <tbody id="operationsTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Dashboard estático · datos desde <code>data/historico.json</code> · conectable a SharePoint vía Power Automate
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
